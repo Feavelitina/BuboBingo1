@@ -1,0 +1,240 @@
+
+import sys
+import numpy as np
+from PyQt5.QtWidgets import (QApplication, QWidget, QLabel, QLineEdit,
+                             QPushButton, QVBoxLayout, QMessageBox, QComboBox,
+                             QRadioButton, QButtonGroup)
+from PyQt5.QtGui import QPixmap
+from PyQt5.QtCore import Qt
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+import subprocess
+import os
+
+class MainWindow(QWidget):  # Определение класса MainWindow
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("Обучающее приложение: Численное Дифференцирование")
+        self.setGeometry(100, 100, 800, 600) # x, y, width, height
+
+        self.initUI()
+
+    def initUI(self):
+        # Элементы интерфейса
+        self.method_label = QLabel("Выберите метод:")
+        self.method_combo = QComboBox()
+        self.method_combo.addItem("Метод конечных разностей")
+        self.method_combo.addItem("Метод двусторонней разности")
+        self.method_combo.addItem("Метод Эйлера")
+
+        self.function_label = QLabel("Введите функцию (например, sin(x)):")
+        self.function_input = QLineEdit()
+
+
+        self.x_label = QLabel("Введите значение x:")
+        self.x_input = QLineEdit()
+
+        self.h_label = QLabel("Введите шаг h:")
+        self.h_input = QLineEdit()
+
+        self.calculate_button = QPushButton("Вычислить")
+        self.calculate_button.clicked.connect(self.calculate_derivative)
+
+        self.result_label = QLabel("Результат:")
+        self.result_text = QLabel("")
+
+        #Виджет для отображения графика
+        self.figure = plt.figure()
+        self.canvas = FigureCanvas(self.figure)
+
+        # Кнопка для отображения обучающего задания
+        self.show_training_button = QPushButton("Обучающее задание")
+        self.show_training_button.clicked.connect(self.display_training_task)
+
+        # Разметка
+        vbox = QVBoxLayout()
+        vbox.addWidget(self.method_label)
+        vbox.addWidget(self.method_combo)
+        vbox.addWidget(self.function_label)
+        vbox.addWidget(self.function_input)
+        vbox.addWidget(self.x_label)
+        vbox.addWidget(self.x_input)
+        vbox.addWidget(self.h_label)
+        vbox.addWidget(self.h_input)
+        vbox.addWidget(self.calculate_button)
+        vbox.addWidget(self.result_label)
+        vbox.addWidget(self.result_text)
+        vbox.addWidget(self.canvas)  # Добавление виджета графика
+        vbox.addWidget(self.show_training_button)
+
+        self.setLayout(vbox)
+
+    def calculate_derivative(self):
+        try:
+            method = self.method_combo.currentText()
+            function_str = self.function_input.text()
+            x = float(self.x_input.text())
+            h = float(self.h_input.text())
+
+            # Преобразуем строку функции в Python-функцию (осторожно с безопасностью!)
+            # eval() может быть опасен, если принимать произвольный ввод от пользователя.
+            # В реальном приложении используйте более безопасный способ, например, sympy.
+            function = lambda x: eval(function_str)
+
+            if method == "Метод конечных разностей":
+                derivative = self.finite_difference(function, x, h)
+            elif method == "Метод двусторонней разности":
+                derivative = self.two_sided_difference(function, x, h)
+            elif method == "Метод Эйлера":
+                derivative = self.euler_method(function, x, h)
+            else:
+                QMessageBox.critical(self, "Ошибка", "Неизвестный метод.")
+                return
+
+            self.result_text.setText(str(derivative))
+            self.plot_function(function, x, h, derivative) #Отрисовка графика
+
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", str(e))
+
+    def finite_difference(self, f, x, h):
+        # Реализация метода конечных разностей (прямая разность)
+        return (f(x + h) - f(x)) / h
+
+    def two_sided_difference(self, f, x, h):
+        # Реализация метода двусторонней разности (центральная разность)
+        return (f(x + h) - f(x - h)) / (2 * h)
+
+    def euler_method(self, f, x, h):
+        return f(x)  #  Временная заглушка -  нужно уточнить, что вы хотите вычислять методом Эйлера.
+
+    def plot_function(self, f, x, h, derivative):
+        # Отрисовка графика функции и ее производной
+        self.figure.clf()  # Очистить предыдущий график
+        ax = self.figure.add_subplot(111)
+
+        x_values = np.linspace(x - 5*h, x + 5*h, 100) #Увеличил диапазон отрисовки
+        y_values = [f(xi) for xi in x_values]
+        der_values = [self.two_sided_difference(f, xi, h) for xi in x_values] #Использую двустороннюю разность для отрисовки
+
+        ax.plot(x_values, y_values, label="f(x)")
+        ax.plot(x_values, der_values, label="f'(x) (численно)")
+        ax.plot(x, derivative, 'ro', label=f"f'({x}) = {derivative:.2f}") #Точка производной
+
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        ax.legend()
+        ax.grid(True)
+
+        self.canvas.draw() #Перерисовка канвы
+
+    def create_training_task(self):
+        """Создает обучающее задание."""
+        # Пример:  Вопрос на выбор правильной формулы
+        question = "Какая формула соответствует методу центральной разности?"
+        options = [
+            "(f(x+h) - f(x)) / h",
+            "(f(x+h) - f(x-h)) / (2h)",
+            "(f(x) - f(x-h)) / h"
+        ]
+        correct_answer = 1  # Индекс правильного ответа
+
+        return question, options, correct_answer
+
+    def display_training_task(self):
+        """Отображает обучающее задание в интерфейсе."""
+        question, options, correct_answer = self.create_training_task()
+
+        # Создаем элементы для отображения вопроса и вариантов ответов
+        self.question_label = QLabel(question)
+        self.radio_buttons = []
+        self.answer_group = QButtonGroup() #Чтобы можно было выбрать только один вариант
+
+        vbox = QVBoxLayout()
+        vbox.addWidget(self.question_label)
+
+        for i, option in enumerate(options):
+            radio_button = QRadioButton(option)
+            self.radio_buttons.append(radio_button)
+            self.answer_group.addButton(radio_button, i) #Связываем кнопку с индексом
+            vbox.addWidget(radio_button)
+
+        self.check_answer_button = QPushButton("Проверить ответ")
+        self.check_answer_button.clicked.connect(lambda: self.check_answer(correct_answer)) #Передаем правильный ответ
+
+        vbox.addWidget(self.check_answer_button)
+
+        # Заменяем старый виджет на новый (с заданием)
+        self.clear_layout() #Удаляем все элементы из текущего layout
+        for i in range(self.layout().count()):
+             self.layout().itemAt(i).widget().close()
+
+        for i in range(vbox.count()):
+            self.layout().addWidget(vbox.itemAt(i).widget())
+
+    def check_answer(self, correct_answer):
+        """Проверяет ответ пользователя."""
+        selected_id = self.answer_group.checkedId()
+
+        if selected_id == correct_answer:
+            QMessageBox.information(self, "Результат", "Правильно!")
+        else:
+            QMessageBox.information(self, "Результат", "Неправильно. Попробуйте еще раз.")
+
+    def clear_layout(self):
+       """Очищает текущий layout."""
+       layout = self.layout()
+       while layout.count():
+           child = layout.takeAt(0)
+           if child.widget():
+               child.widget().deleteLater()
+
+
+def latex_to_pixmap(latex_formula, filename="formula.png"):
+    """
+    Компилирует LaTeX-формулу в PNG-изображение и возвращает QPixmap.
+    Требует установленного LaTeX и пакета dvipng.
+    """
+    latex_preamble = r"""
+    \documentclass[border=2mm]{standalone}
+    \usepackage{amsmath}
+    \usepackage{amsfonts}
+    \usepackage{amssymb}
+    """
+    latex_code = latex_preamble + r"\begin{document}$" + latex_formula + r"$\end{document}"
+
+    try:
+        # Создаем файл LaTeX
+        with open("formula.tex", "w") as f:
+            f.write(latex_code)
+
+        # Компилируем LaTeX в DVI
+        subprocess.run(["latex", "-interaction=nonstopmode", "formula.tex"], check=True, capture_output=True)
+
+        # Преобразуем DVI в PNG
+        subprocess.run(["dvipng", "-D", "300", "-T", "tight", "formula.dvi", "-o", filename], check=True, capture_output=True)
+
+        # Загружаем PNG как QPixmap
+        pixmap = QPixmap(filename)
+
+        # Удаляем временные файлы
+        os.remove("formula.tex")
+        os.remove("formula.dvi")
+        os.remove("formula.log")
+        os.remove(filename)
+
+        return pixmap
+
+    except subprocess.CalledProcessError as e:
+        print(f"Ошибка при компиляции LaTeX: {e.stderr.decode()}")
+        return None
+    except FileNotFoundError:
+        print("Ошибка:  Убедитесь, что LaTeX и dvipng установлены и добавлены в PATH.")
+        return None
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec_()) 
