@@ -1,0 +1,453 @@
+
+import tkinter as tk
+from tkinter import ttk, messagebox, simpledialog
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import subprocess
+import os
+from PIL import Image, ImageTk
+
+class NumericalDifferentiationApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Методы численного дифференцирования")
+        self.current_user = None
+        self.users = ["User1", "User2", "User3"] # Список пользователей
+
+        self.setup_user_selection()
+        self.setup_main_menu()
+
+    def setup_user_selection(self):
+      """Настройка выбора пользователя."""
+      self.user_label = ttk.Label(self.root, text="Выберите пользователя:")
+      self.user_label.pack(pady=10)
+
+      self.user_combo = ttk.Combobox(self.root, values=self.users, state="readonly")
+      self.user_combo.pack(pady=5)
+      self.user_combo.bind("<<ComboboxSelected>>", self.select_user)
+
+      self.login_button = ttk.Button(self.root, text="Войти", command=self.login)
+      self.login_button.pack(pady=10)
+
+    def select_user(self, event):
+        """Обработчик выбора пользователя."""
+        self.selected_user = self.user_combo.get()
+
+    def login(self):
+        """Вход пользователя в систему."""
+        if self.selected_user:
+            self.current_user = self.selected_user
+            messagebox.showinfo("Успех", f"Вы вошли как {self.current_user}!")
+            # Удаляем элементы выбора пользователя
+            self.user_label.destroy()
+            self.user_combo.destroy()
+            self.login_button.destroy()
+            # Отображаем главное меню
+            self.setup_main_menu()
+        else:
+            messagebox.showerror("Ошибка", "Пожалуйста, выберите пользователя.")
+
+    def setup_main_menu(self):
+        """Настройка главного меню."""
+        self.main_menu_label = ttk.Label(self.root, text="Главное меню", font=("Arial", 16))
+        self.main_menu_label.pack(pady=20)
+
+        self.finite_difference_button = ttk.Button(self.root, text="Метод конечных разностей", command=self.show_finite_difference_interface)
+        self.finite_difference_button.pack(pady=5)
+
+        self.two_sided_difference_button = ttk.Button(self.root, text="Метод двусторонней разности", command=self.show_two_sided_difference_interface)
+        self.two_sided_difference_button.pack(pady=5)
+
+        self.euler_button = ttk.Button(self.root, text="Метод Эйлера", command=self.show_euler_interface)
+        self.euler_button.pack(pady=5)
+
+        self.formula_button = ttk.Button(self.root, text="Справочник формул", command=self.show_formula_reference)
+        self.formula_button.pack(pady=5)
+
+        self.training_button = ttk.Button(self.root, text="Обучающие задания", command=self.show_training_tasks)
+        self.training_button.pack(pady=5)
+
+        self.logout_button = ttk.Button(self.root, text="Выйти", command=self.logout)
+        self.logout_button.pack(pady=10)
+
+    def logout(self):
+        """Выход из системы."""
+        self.current_user = None
+        # Удаляем элементы главного меню
+        self.main_menu_label.destroy()
+        self.finite_difference_button.destroy()
+        self.two_sided_difference_button.destroy()
+        self.euler_button.destroy()
+        self.formula_button.destroy()
+        self.training_button.destroy()
+        self.logout_button.destroy()
+        # Отображаем выбор пользователя
+        self.setup_user_selection()
+
+    def clear_window(self):
+        """Очистка всех виджетов из главного окна."""
+        for widget in self.root.winfo_children():
+            widget.destroy()
+
+    def go_back_to_main_menu(self):
+        """Возвращение в главное меню."""
+        self.clear_window()
+        self.setup_main_menu()
+
+    def create_numerical_differentiation_interface(self, method_name, method_function):
+        """Создает интерфейс для метода численного дифференцирования."""
+        self.clear_window()
+
+        # Labels and Entry fields
+        function_label = ttk.Label(self.root, text="Введите функцию (например, sin(x)):")
+        function_label.pack(pady=5)
+        function_entry = ttk.Entry(self.root)
+        function_entry.pack(pady=5)
+
+        x_label = ttk.Label(self.root, text="Введите значение x:")
+        x_label.pack(pady=5)
+        x_entry = ttk.Entry(self.root)
+        x_entry.pack(pady=5)
+
+        h_label = ttk.Label(self.root, text="Введите шаг h:")
+        h_label.pack(pady=5)
+        h_entry = ttk.Entry(self.root)
+        h_entry.pack(pady=5)
+
+        # Calculate button
+        calculate_button = ttk.Button(self.root, text="Вычислить", command=lambda: self.calculate_and_plot(
+            function_entry.get(), x_entry.get(), h_entry.get(), method_function))
+        calculate_button.pack(pady=10)
+
+        # Result Label
+        self.result_label = ttk.Label(self.root, text="Результат:")
+        self.result_label.pack(pady=5)
+
+        # Back button
+        back_button = ttk.Button(self.root, text="Назад в главное меню", command=self.go_back_to_main_menu)
+        back_button.pack(pady=10)
+
+        # Store widgets for later use
+        self.function_entry = function_entry
+        self.x_entry = x_entry
+        self.h_entry = h_entry
+
+    def show_finite_difference_interface(self):
+        """Отображает интерфейс для метода конечных разностей."""
+        self.create_numerical_differentiation_interface("Метод конечных разностей", self.finite_difference)
+
+    def show_two_sided_difference_interface(self):
+        """Отображает интерфейс для метода двусторонней разности."""
+        self.create_numerical_differentiation_interface("Метод двусторонней разности", self.two_sided_difference)
+
+    def show_euler_interface(self):
+        """Отображает интерфейс для метода Эйлера."""
+        self.clear_window()
+
+        # Labels and Entry fields for Euler method
+        ode_label = ttk.Label(self.root, text="Введите ОДУ (dy/dx = f(x, y), например, y):")
+        ode_label.pack(pady=5)
+        ode_entry = ttk.Entry(self.root)
+        ode_entry.pack(pady=5)
+
+        initial_condition_label = ttk.Label(self.root, text="Введите начальное условие (y(x0) = y0, например, 1):")
+        initial_condition_label.pack(pady=5)
+        initial_condition_entry = ttk.Entry(self.root)
+        initial_condition_entry.pack(pady=5)
+
+        x0_label = ttk.Label(self.root, text="Введите x0:")
+        x0_label.pack(pady=5)
+        x0_entry = ttk.Entry(self.root)
+        x0_entry.pack(pady=5)
+
+        h_label = ttk.Label(self.root, text="Введите шаг h:")
+        h_label.pack(pady=5)
+        h_entry = ttk.Entry(self.root)
+        h_entry.pack(pady=5)
+
+        x_end_label = ttk.Label(self.root, text="Введите конечное значение x:")
+        x_end_label.pack(pady=5)
+        x_end_entry = ttk.Entry(self.root)
+        x_end_entry.pack(pady=5)
+
+        # Calculate button for Euler method
+        calculate_button = ttk.Button(self.root, text="Вычислить", command=lambda: self.calculate_euler(
+            ode_entry.get(), initial_condition_entry.get(), x0_entry.get(), h_entry.get(), x_end_entry.get()))
+        calculate_button.pack(pady=10)
+
+        # Back button
+        back_button = ttk.Button(self.root, text="Назад в главное меню", command=self.go_back_to_main_menu)
+        back_button.pack(pady=10)
+
+        # Store widgets for later use
+        self.ode_entry = ode_entry
+        self.initial_condition_entry = initial_condition_entry
+        self.x0_entry = x0_entry
+        self.h_entry = h_entry
+        self.x_end_entry = x_end_entry
+
+    def calculate_euler(self, ode_str, initial_condition_str, x0_str, h_str, x_end_str):
+        """Вычисляет решение ОДУ методом Эйлера."""
+        try:
+            # Get values from entry fields
+            ode = lambda x, y: eval(ode_str)  # dy/dx = f(x, y)
+            initial_condition = float(initial_condition_str)  # y(x0) = y0
+            x0 = float(x0_str)
+            h = float(h_str)
+            x_end = float(x_end_str)
+
+            # Perform Euler method
+            x_values = np.arange(x0, x_end + h, h)
+            y_values = [initial_condition]
+            y = initial_condition
+
+            for x in x_values[:-1]:
+                y = y + h * ode(x, y)
+                y_values.append(y)
+
+            # Plot the result
+            self.plot_euler_result(x_values, y_values)
+
+        except Exception as e:
+            messagebox.showerror("Ошибка", str(e))
+
+    def plot_euler_result(self, x_values, y_values):
+        """Отображает график решения ОДУ, полученного методом Эйлера."""
+        try:
+            # Clear previous plot if it exists
+            if hasattr(self, 'canvas_widget'):
+                self.canvas_widget.destroy()
+
+            # Create a new figure and plot
+            fig, ax = plt.subplots(figsize=(8, 6))
+            ax.plot(x_values, y_values, marker='o', linestyle='-', label="Euler Method")
+
+            # Customize the plot
+            ax.set_xlabel("x")
+            ax.set_ylabel("y")
+            ax.set_title("Solution of ODE using Euler Method")
+            ax.legend()
+            ax.grid(True)
+
+            # Embed the plot in Tkinter window
+            self.canvas = FigureCanvasTkAgg(fig, master=self.root)
+            self.canvas_widget = self.canvas.get_tk_widget()
+            self.canvas_widget.pack(pady=10)
+            self.canvas.draw()
+
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Ошибка при построении графика: {str(e)}")
+
+    def show_formula_reference(self):
+        """Отображает справочник формул."""
+        self.clear_window()
+
+        # LaTeX formulas
+        finite_difference_formula = r"\frac{f(x+h) - f(x)}{h}"
+        two_sided_difference_formula = r"\frac{f(x+h) - f(x-h)}{2h}"
+        euler_formula = r"y_{i+1} = y_i + h \cdot f(x_i, y_i)"
+
+        # Display formulas
+        finite_difference_label = self.create_latex_label("Метод конечных разностей:", finite_difference_formula)
+        two_sided_difference_label = self.create_latex_label("Метод двусторонней разности:", two_sided_difference_formula)
+        euler_formula_label = self.create_latex_label("Метод Эйлера:", euler_formula)
+
+        finite_difference_label.pack(pady=5)
+        two_sided_difference_label.pack(pady=5)
+        euler_formula_label.pack(pady=5)
+
+        # Back button
+        back_button = ttk.Button(self.root, text="Назад в главное меню", command=self.go_back_to_main_menu)
+        back_button.pack(pady=10)
+
+    def create_latex_label(self, label_text, latex_formula):
+        """Создает QLabel с LaTeX формулой."""
+        try:
+            # Convert LaTeX formula to image
+            pixmap = self.latex_to_pixmap(latex_formula)
+            if pixmap:
+                # Convert PIL Image to Tk PhotoImage
+                img = ImageTk.PhotoImage(pixmap)
+
+                # Create a label with text and image
+                compound_label = tk.Label(self.root, text=label_text, image=img, compound="left")
+                compound_label.image = img  # keep a reference!
+                return compound_label
+            else:
+                return ttk.Label(self.root, text=f"{label_text} (Ошибка отображения формулы)")
+        except Exception as e:
+            return ttk.Label(self.root, text=f"{label_text} (Ошибка: {str(e)})")
+
+    def show_training_tasks(self):
+        """Отображает обучающие задания."""
+        self.clear_window()
+
+        # Example questions and answers for each method
+        training_tasks = {
+            "Метод конечных разностей": [
+                ("Что такое метод конечных разностей?", ["Приближение производной", "Решение ОДУ", "Интегрирование"], "Приближение производной"),
+                ("Формула метода конечных разностей?", [r"\frac{f(x+h) - f(x)}{h}", r"\frac{f(x+h) + f(x)}{h}", r"\frac{f(x) - f(x-h)}{h}"], r"\frac{f(x+h) - f(x)}{h}"),
+            ],
+            "Метод двусторонней разности": [
+                ("Что такое метод двусторонней разности?", ["Более точное приближение производной", "Решение ОДУ", "Интегрирование"], "Более точное приближение производной"),
+                ("Формула метода двусторонней разности?", [r"\frac{f(x+h) - f(x)}{h}", r"\frac{f(x+h) - f(x-h)}{2h}", r"\frac{f(x) - f(x-h)}{h}"], r"\frac{f(x+h) - f(x-h)}{2h}"),
+            ],
+            "Метод Эйлера": [
+                ("Что такое метод Эйлера?", ["Приближение производной", "Решение ОДУ", "Интегрирование"], "Решение ОДУ"),
+                ("Формула метода Эйлера?", [r"y_{i+1} = y_i + h \cdot f(x_i, y_i)", r"y_{i+1} = y_i - h \cdot f(x_i, y_i)", r"y_{i+1} = y_i + h^2 \cdot f(x_i, y_i)"], r"y_{i+1} = y_i + h \cdot f(x_i, y_i)"),
+            ],
+        }
+
+        # Create a Notebook for different methods
+        notebook = ttk.Notebook(self.root)
+        notebook.pack(pady=10, expand=True, fill="both")
+
+        for method, tasks in training_tasks.items():
+            # Create a frame for each method
+            method_frame = ttk.Frame(notebook)
+            notebook.add(method_frame, text=method)
+
+            # Display the tasks
+            for i, (question, options, correct_answer) in enumerate(tasks):
+                question_label = ttk.Label(method_frame, text=f"Вопрос {i + 1}: {question}")
+                question_label.pack(pady=5)
+
+                # Radio buttons for options
+                selected_option = tk.StringVar()
+                for option in options:
+                    option_radio = ttk.Radiobutton(method_frame, text=option, variable=selected_option, value=option)
+                    option_radio.pack(anchor=tk.W)
+
+                # Check answer button
+                check_button = ttk.Button(method_frame, text="Проверить ответ", command=lambda q=question, o=options, ca=correct_answer, so=selected_option: self.check_answer(q, o, ca, so.get()))
+                check_button.pack(pady=5)
+
+        # Back button
+        back_button = ttk.Button(self.root, text="Назад в главное меню", command=self.go_back_to_main_menu)
+        back_button.pack(pady=10)
+
+    def check_answer(self, question, options, correct_answer, selected_option):
+        """Проверяет ответ пользователя."""
+        if selected_option == correct_answer:
+            messagebox.showinfo("Результат", "Правильно!")
+        else:
+            messagebox.showerror("Результат", f"Неправильно. Правильный ответ: {correct_answer}")
+
+    def calculate_and_plot(self, function_str, x_str, h_str, method_function):
+        """Вычисляет производную и строит график."""
+        try:
+            # Get values from entry fields
+            x = float(x_str)
+            h = float(h_str)
+
+            #  Предупреждение о безопасности eval()
+            messagebox.showwarning("Предупреждение", "Использование eval() небезопасно!  Не вводите произвольный код.")
+
+            # Evaluate the function
+            function = lambda x: eval(function_str) # ОПАСНО!
+
+            # Calculate the derivative
+            derivative = method_function(function, x, h)
+
+            # Display the result
+            self.result_label.config(text=f"Результат: {derivative}")
+
+            # Plot the function and its derivative
+            self.plot_function(function, x, h, method_function)
+
+        except Exception as e:
+            messagebox.showerror("Ошибка", str(e))
+
+    def finite_difference(self, f, x, h):
+        """Метод конечных разностей (прямая разность)."""
+        return (f(x + h) - f(x)) / h
+
+    def two_sided_difference(self, f, x, h):
+        """Метод двусторонней разности (центральная разность)."""
+        return (f(x + h) - f(x - h)) / (2 * h)
+
+    def plot_function(self, f, x, h, method_function):
+        """Отображает график функции и ее производной."""
+        try:
+            # Clear previous plot if it exists
+            if hasattr(self, 'canvas_widget'):
+                self.canvas_widget.destroy()
+
+            # Create a new figure and plot
+            fig, ax = plt.subplots(figsize=(8, 6))
+
+            # Generate x values
+            x_values = np.linspace(x - 5 * h, x + 5 * h, 100)
+
+            # Evaluate function and derivative values
+            y_values = [f(xi) for xi in x_values]
+            der_values = [method_function(f, xi, h) for xi in x_values]
+
+            # Plot the function and its derivative
+            ax.plot(x_values, y_values, label="f(x)")
+            ax.plot(x_values, der_values, label="f'(x)")
+            ax.scatter(x, method_function(f, x, h), color='red', label=f"f'({x})")
+
+            # Customize the plot
+            ax.set_xlabel("x")
+            ax.set_ylabel("y")
+            ax.set_title("Function and its Derivative")
+            ax.legend()
+            ax.grid(True)
+
+            # Embed the plot in Tkinter window
+            self.canvas = FigureCanvasTkAgg(fig, master=self.root)
+            self.canvas_widget = self.canvas.get_tk_widget()
+            self.canvas_widget.pack(pady=10)
+            self.canvas.draw()
+
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Ошибка при построении графика: {str(e)}")
+
+    def latex_to_pixmap(self, latex_formula, filename="formula.png"):
+        """
+        Компилирует LaTeX-формулу в PNG-изображение и возвращает PIL Image.
+        Требует установленного LaTeX и пакета dvipng.
+        """
+        latex_preamble = r"""
+        \documentclass[border=2mm]{standalone}
+        \usepackage{amsmath}
+        \usepackage{amsfonts}
+        \usepackage{amssymb}
+        """
+        latex_code = latex_preamble + r"\begin{document}$" + latex_formula + r"$\end{document}"
+
+        try:
+            # Create LaTeX file
+            with open("formula.tex", "w") as f:
+                f.write(latex_code)
+
+            # Compile LaTeX to DVI
+            subprocess.run(["latex", "-interaction=nonstopmode", "formula.tex"], check=True, capture_output=True)
+
+            # Convert DVI to PNG
+            subprocess.run(["dvipng", "-D", "300", "-T", "tight", "formula.dvi", "-o", filename], check=True, capture_output=True)
+
+            # Load PNG as PIL Image
+            img = Image.open(filename)
+
+            # Delete temporary files
+            os.remove("formula.tex")
+            os.remove("formula.dvi")
+            os.remove("formula.log")
+            os.remove(filename)
+
+            return img
+
+        except subprocess.CalledProcessError as e:
+            print(f"Ошибка при компиляции LaTeX: {e.stderr.decode()}")
+            return None
+        except FileNotFoundError:
+            print("Ошибка:  Убедитесь, что LaTeX и dvipng установлены и добавлены в PATH.")
+            return None
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = NumericalDifferentiationApp(root)
+    root.mainloop()
