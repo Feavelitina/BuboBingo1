@@ -1,0 +1,221 @@
+
+import numpy as np
+import matplotlib.pyplot as plt
+import tkinter as tk
+from tkinter import ttk
+from tkinter import messagebox
+import random
+
+# Теоретическая часть: Методы численного дифференцирования
+
+def forward_difference(f, x, h):
+    """Метод прямой разности."""
+    return (f(x + h) - f(x)) / h
+
+def backward_difference(f, x, h):
+    """Метод обратной разности."""
+    return (f(x) - f(x - h)) / h
+
+def central_difference(f, x, h):
+    """Метод центральной разности."""
+    return (f(x + h) - f(x - h)) / (2 * h)
+
+def richardson_extrapolation(f, x, h, order=2):
+    """Метод Ричардсона для повышения точности."""
+    if order == 2:
+        return (4 * central_difference(f, x, h/2) - central_difference(f, x, h)) / 3
+    elif order == 4:
+        return (16 * richardson_extrapolation(f, x, h/2, order=2) - richardson_extrapolation(f, x, h, order=2)) / 15
+    else:
+        raise ValueError("Order must be 2 or 4")
+
+# ==================== Пример функционала приложения (с использованием Tkinter) ====================
+
+class App:
+    def __init__(self, master):
+        self.master = master
+        master.title("Численное Дифференцирование")
+
+        # Вкладки
+        self.notebook = ttk.Notebook(master)
+        self.notebook.pack(expand=True, fill="both", padx=5, pady=5)
+
+        # Вкладка для вычислений
+        self.calculation_tab = ttk.Frame(self.notebook)
+        self.notebook.add(self.calculation_tab, text="Вычисление")
+
+        # Вкладка для обучения
+        self.learning_tab = ttk.Frame(self.notebook)
+        self.notebook.add(self.learning_tab, text="Обучение")
+
+        self.create_calculation_tab()
+        self.create_learning_tab()
+
+    def create_calculation_tab(self):
+        """Создает интерфейс для вкладки вычислений."""
+
+        # Ввод функции
+        self.function_label = ttk.Label(self.calculation_tab, text="Функция: f(x) = ")
+        self.function_label.grid(row=0, column=0, padx=5, pady=5)
+
+        self.function_entry = ttk.Entry(self.calculation_tab, width=30)
+        self.function_entry.grid(row=0, column=1, padx=5, pady=5)
+        self.function_entry.insert(0, "x**2 + 2*x") # Пример функции по умолчанию
+
+        # Ввод x
+        self.x_label = ttk.Label(self.calculation_tab, text="x:")
+        self.x_label.grid(row=1, column=0, padx=5, pady=5)
+
+        self.x_entry = ttk.Entry(self.calculation_tab, width=10)
+        self.x_entry.grid(row=1, column=1, padx=5, pady=5)
+        self.x_entry.insert(0, "1")
+
+        # Ввод h
+        self.h_label = ttk.Label(self.calculation_tab, text="h:")
+        self.h_label.grid(row=2, column=0, padx=5, pady=5)
+
+        self.h_entry = ttk.Entry(self.calculation_tab, width=10)
+        self.h_entry.grid(row=2, column=1, padx=5, pady=5)
+        self.h_entry.insert(0, "0.01")
+
+        # Кнопка вычисления
+        self.calculate_button = ttk.Button(self.calculation_tab, text="Вычислить", command=self.calculate)
+        self.calculate_button.grid(row=3, column=0, columnspan=2, padx=5, pady=5)
+
+        # Вывод результатов
+        self.results_label = ttk.Label(self.calculation_tab, text="Результаты:")
+        self.results_label.grid(row=4, column=0, padx=5, pady=5)
+
+        self.results_text = tk.Text(self.calculation_tab, width=40, height=10)
+        self.results_text.grid(row=5, column=0, columnspan=2, padx=5, pady=5)
+
+    def create_learning_tab(self):
+        """Создает интерфейс для вкладки обучения."""
+        self.task_label = ttk.Label(self.learning_tab, text="Задание:")
+        self.task_label.grid(row=0, column=0, padx=5, pady=5, sticky="w")
+
+        self.task_text = tk.Text(self.learning_tab, width=60, height=5, wrap="word")
+        self.task_text.grid(row=1, column=0, columnspan=2, padx=5, pady=5)
+        self.task_text.config(state=tk.DISABLED) # Запрещаем редактирование
+
+        self.method_label = ttk.Label(self.learning_tab, text="Выберите метод:")
+        self.method_label.grid(row=2, column=0, padx=5, pady=5, sticky="w")
+
+        self.method_var = tk.StringVar()
+        self.method_combo = ttk.Combobox(self.learning_tab, textvariable=self.method_var, values=["Прямая разность", "Обратная разность", "Центральная разность"])
+        self.method_combo.grid(row=2, column=1, padx=5, pady=5, sticky="w")
+        self.method_combo.set("Центральная разность") # По умолчанию
+
+        self.answer_label = ttk.Label(self.learning_tab, text="Ваш ответ:")
+        self.answer_label.grid(row=3, column=0, padx=5, pady=5, sticky="w")
+
+        self.answer_entry = ttk.Entry(self.learning_tab, width=20)
+        self.answer_entry.grid(row=3, column=1, padx=5, pady=5, sticky="w")
+
+        self.check_button = ttk.Button(self.learning_tab, text="Проверить", command=self.check_answer)
+        self.check_button.grid(row=4, column=0, columnspan=2, padx=5, pady=5)
+
+        self.feedback_label = ttk.Label(self.learning_tab, text="")
+        self.feedback_label.grid(row=5, column=0, columnspan=2, padx=5, pady=5)
+
+        self.new_task_button = ttk.Button(self.learning_tab, text="Новое задание", command=self.generate_task)
+        self.new_task_button.grid(row=6, column=0, columnspan=2, padx=5, pady=5)
+
+        self.generate_task() # Сразу генерируем первое задание
+
+    def generate_task(self):
+        """Генерирует случайное задание на численное дифференцирование."""
+        #  Генерация простых функций (можно расширить)
+        functions = [
+            "x**2 + 3*x",
+            "np.sin(x)",
+            "np.cos(x) + x",
+            "2*x**3 - x",
+        ]
+        self.current_function_str = random.choice(functions)
+        self.current_x = random.uniform(0.5, 2.0)
+        self.current_h = random.uniform(0.01, 0.1)
+
+        task_text = f"Вычислите производную функции f(x) = {self.current_function_str} в точке x = {self.current_x:.2f} с шагом h = {self.current_h:.3f}, используя метод:"
+
+        self.task_text.config(state=tk.NORMAL) # Разрешаем редактирование
+        self.task_text.delete("1.0", tk.END)
+        self.task_text.insert(tk.END, task_text)
+        self.task_text.config(state=tk.DISABLED) # Запрещаем редактирование
+
+        self.answer_entry.delete(0, tk.END) # Очищаем поле ответа
+
+    def check_answer(self):
+        """Проверяет ответ пользователя."""
+        try:
+            user_answer = float(self.answer_entry.get())
+
+            # Получаем выбранный метод
+            method = self.method_var.get()
+
+            # Создаем функцию из строки
+            f = lambda x: eval(self.current_function_str)
+
+            # Вычисляем правильный ответ
+            if method == "Прямая разность":
+                correct_answer = forward_difference(f, self.current_x, self.current_h)
+            elif method == "Обратная разность":
+                correct_answer = backward_difference(f, self.current_x, self.current_h)
+            elif method == "Центральная разность":
+                correct_answer = central_difference(f, self.current_x, self.current_h)
+            else:
+                self.feedback_label.config(text="Ошибка: Неверный метод")
+                return
+
+            # Сравниваем ответы с учетом погрешности
+            tolerance = 0.01 # Допустимая погрешность в процентах
+            if abs(user_answer - correct_answer) <= tolerance * abs(correct_answer):
+                self.feedback_label.config(text="Правильно!", foreground="green")
+            else:
+                self.feedback_label.config(text=f"Неправильно. Правильный ответ: {correct_answer:.3f}", foreground="red")
+
+        except ValueError:
+            self.feedback_label.config(text="Ошибка: Введите число", foreground="red")
+        except Exception as e:
+            self.feedback_label.config(text=f"Ошибка: {str(e)}", foreground="red")
+
+    def calculate(self):
+        """Вычисляет производные разными методами и выводит результаты."""
+        try:
+            function_str = self.function_entry.get()
+            x = float(self.x_entry.get())
+            h = float(self.h_entry.get())
+
+            # Создаем функцию из строки
+            f = lambda x: eval(function_str)
+
+            # Вычисляем производные разными методами
+            forward = forward_difference(f, x, h)
+            backward = backward_difference(f, x, h)
+            central = central_difference(f, x, h)
+            richardson = richardson_extrapolation(f, x, h)
+
+            # Выводим результаты
+            results = f"""
+            Метод прямой разности: {forward:.6f}
+            Метод обратной разности: {backward:.6f}
+            Метод центральной разности: {central:.6f}
+            Метод Ричардсона: {richardson:.6f}
+            """
+
+            self.results_text.delete("1.0", tk.END) # Очищаем предыдущий результат
+            self.results_text.insert(tk.END, results)
+
+        except Exception as e:
+            messagebox.showerror("Ошибка", str(e)) # Обработка ошибок
+
+
+# Основная функция для запуска приложения
+def main():
+    root = tk.Tk()
+    app = App(root)
+    root.mainloop()
+
+
+if __name__ == "__main__":
+    main()
