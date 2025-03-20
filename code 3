@@ -1,0 +1,180 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import tkinter as tk
+from tkinter import ttk
+from tkinter import messagebox
+
+# Теоретическая часть: Методы численного дифференцирования
+
+def forward_difference(f, x, h):
+    """
+    Метод прямой разности.
+    f: Функция для дифференцирования.
+    x: Точка, в которой вычисляется производная.
+    h: Шаг дифференцирования.
+    """
+    return (f(x + h) - f(x)) / h
+
+def backward_difference(f, x, h):
+    """
+    Метод обратной разности.
+    f: Функция для дифференцирования.
+    x: Точка, в которой вычисляется производная.
+    h: Шаг дифференцирования.
+    """
+    return (f(x) - f(x - h)) / h
+
+def central_difference(f, x, h):
+    """
+    Метод центральной разности.
+    f: Функция для дифференцирования.
+    x: Точка, в которой вычисляется производная.
+    h: Шаг дифференцирования.
+    """
+    return (f(x + h) - f(x - h)) / (2 * h)
+
+def richardson_extrapolation(f, x, h, order=2):
+    """
+    Метод Ричардсона для повышения точности.
+    f: Функция для дифференцирования.
+    x: Точка, в которой вычисляется производная.
+    h: Шаг дифференцирования.
+    order: Порядок экстраполяции (обычно 2 или 4).
+    """
+    if order == 2:
+        return (4 * central_difference(f, x, h/2) - central_difference(f, x, h)) / 3
+    elif order == 4:
+        # Более сложная формула для 4 порядка
+        return (16 * richardson_extrapolation(f, x, h/2, order=2) - richardson_extrapolation(f, x, h, order=2)) / 15
+    else:
+        raise ValueError("Order must be 2 or 4")
+
+# ==================== Пример функционала приложения (с использованием Tkinter) ====================
+
+class App:
+    def __init__(self, master):
+        self.master = master
+        master.title("Численное Дифференцирование")
+
+        # Ввод функции
+        self.function_label = ttk.Label(master, text="Функция: f(x) = ")
+        self.function_label.grid(row=0, column=0, padx=5, pady=5)
+
+        self.function_entry = ttk.Entry(master, width=30)
+        self.function_entry.grid(row=0, column=1, padx=5, pady=5)
+        self.function_entry.insert(0, "x**2 + 2*x") # Пример функции по умолчанию
+
+        # Ввод x
+        self.x_label = ttk.Label(master, text="x:")
+        self.x_label.grid(row=1, column=0, padx=5, pady=5)
+
+        self.x_entry = ttk.Entry(master, width=10)
+        self.x_entry.grid(row=1, column=1, padx=5, pady=5)
+        self.x_entry.insert(0, "1")
+
+        # Ввод h
+        self.h_label = ttk.Label(master, text="h:")
+        self.h_label.grid(row=2, column=0, padx=5, pady=5)
+
+        self.h_entry = ttk.Entry(master, width=10)
+        self.h_entry.grid(row=2, column=1, padx=5, pady=5)
+        self.h_entry.insert(0, "0.01")
+
+        # Кнопка вычисления
+        self.calculate_button = ttk.Button(master, text="Вычислить", command=self.calculate)
+        self.calculate_button.grid(row=3, column=0, columnspan=2, padx=5, pady=5)
+
+        # Вывод результатов
+        self.results_label = ttk.Label(master, text="Результаты:")
+        self.results_label.grid(row=4, column=0, padx=5, pady=5)
+
+        self.results_text = tk.Text(master, width=40, height=10)
+        self.results_text.grid(row=5, column=0, columnspan=2, padx=5, pady=5)
+
+    def calculate(self):
+        try:
+            function_str = self.function_entry.get()
+            x = float(self.x_entry.get())
+            h = float(self.h_entry.get())
+
+            # Создаем функцию из строки
+            f = lambda x: eval(function_str)
+
+            # Вычисляем производные разными методами
+            forward = forward_difference(f, x, h)
+            backward = backward_difference(f, x, h)
+            central = central_difference(f, x, h)
+            richardson = richardson_extrapolation(f, x, h)
+
+            # Выводим результаты
+            results = f"""
+            Метод прямой разности: {forward:.6f}
+            Метод обратной разности: {backward:.6f}
+            Метод центральной разности: {central:.6f}
+            Метод Ричардсона: {richardson:.6f}
+            """
+
+            self.results_text.delete("1.0", tk.END) # Очищаем предыдущий результат
+            self.results_text.insert(tk.END, results)
+
+        except Exception as e:
+            messagebox.showerror("Ошибка", str(e)) # Обработка ошибок
+
+
+# Основная функция для запуска приложения
+def main():
+    root = tk.Tk()
+    app = App(root)
+    root.mainloop()
+
+
+if __name__ == "__main__":
+    main()
+
+
+# ====================  Конец примера функционала приложения ====================
+
+
+# Пример функции для демонстрации
+def example_function(x):
+    return x**2 + 2*x
+
+# Пример использования методов
+if __name__ == "__main__":
+
+    # Замените example_function на любую другую функцию, которую хотите дифференцировать
+    x_val = 1.0  # Точка, в которой вычисляется производная
+    h_val = 0.01 # Шаг дифференцирования
+
+    forward_result = forward_difference(example_function, x_val, h_val)
+    backward_result = backward_difference(example_function, x_val, h_val)
+    central_result = central_difference(example_function, x_val, h_val)
+    richardson_result = richardson_extrapolation(example_function, x_val, h_val)
+
+    print(f"Метод прямой разности: {forward_result}")
+    print(f"Метод обратной разности: {backward_result}")
+    print(f"Метод центральной разности: {central_result}")
+    print(f"Метод Ричардсона: {richardson_result}")
+
+    # Визуализация (опционально, для наглядности)
+    x = np.linspace(0, 2, 100)
+    y = example_function(x)
+
+    # Аналитическое решение (для сравнения)
+    analytical_derivative = 2*x_val + 2 # Производная x^2 + 2x = 2x + 2
+
+    plt.figure(figsize=(8, 6))
+    plt.plot(x, y, label="f(x) = x^2 + 2x")
+    plt.plot(x_val, example_function(x_val), 'ro', label="Точка x = 1") # Подсвечиваем точку
+
+    plt.title("Численное дифференцирование")
+    plt.xlabel("x")
+    plt.ylabel("f(x)")
+
+    plt.legend()
+    plt.grid(True)
+
+    # Подписываем значения производных
+    plt.text(1.2, example_function(x_val) + 0.5, f"Центральная разность: {central_result:.2f}")
+    plt.text(1.2, example_function(x_val) + 1, f"Аналитическое решение: {analytical_derivative:.2f}")  # Аналитическое решение для сравнения
+    plt.show()
